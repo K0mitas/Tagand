@@ -1,9 +1,11 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import './index.css'
-import App from './App.tsx'
+import { StrictMode } from 'react';
+import { createRoot } from 'react-dom/client';
+import './index.css';
+import App from './App.tsx';
 
 import { init, miniApp, mainButton, shareURL } from '@telegram-apps/sdk';
+import { loadScore } from './Components/firebase';
+
 
 const initializeTelegramSDK = async () => {
   try {
@@ -14,34 +16,40 @@ const initializeTelegramSDK = async () => {
       console.log('Mini App готово');
     }
 
-    miniApp.setHeaderColor('#531919');
+    const launchParams = (miniApp as any).getLaunchParams();
+    
+    console.log('Параметры запуска:', launchParams);
 
-    // Монтируем главную кнопку
-    if (mainButton.mount.isAvailable()) {
-      mainButton.mount(); // Убедимся, что кнопка установлена
-      console.log('Главная кнопка установлена');
+    const userId = launchParams?.user?.id?.toString();
+    if (!userId) {
+      console.error('Не удалось получить ID пользователя');
+      return;
     }
 
+    // Загружаем очки из Firebase
+    const score = await loadScore(userId);
+    console.log('Загруженные очки:', score);
 
-    // Настраиваем свойства главной кнопки
+    // Устанавливаем цвет заголовка
+    miniApp.setHeaderColor('#531919');
+
+    // Настройка главной кнопки
     if (mainButton.setParams.isAvailable()) {
       mainButton.setParams({
-        backgroundColor: '#aa1388', // Цвет кнопки
-        isEnabled: true, // Кнопка активна
-        isVisible: true, // Кнопка видима
-        text: 'Поделиться очками', // Текст на кнопке
-        textColor: '#000000', // Цвет текста
+        backgroundColor: '#aa1388',
+        isEnabled: true,
+        isVisible: true,
+        text: 'Поделиться очками',
+        textColor: '#000000',
       });
       console.log('Свойства главной кнопки настроены');
     }
 
-
-    // Добавляем слушатель кликов на кнопку
+    // Добавляем слушатель клика на кнопку
     if (mainButton.onClick.isAvailable()) {
-      mainButton.onClick(() => {
+      mainButton.onClick(async () => {
         try {
-          // Получение текущих очков из localStorage
-          const score = localStorage.getItem('memory-game-score') || 0;
+          const score = await loadScore(userId);
           shareURL(`Посмотрите! У меня ${score} очков в игре!`);
           console.log('Окно выбора чата открыто для отправки сообщения.');
         } catch (error) {
@@ -49,11 +57,9 @@ const initializeTelegramSDK = async () => {
         }
       });
     }
-
   } catch (error) {
     console.error('Ошибка инициализации:', error);
   }
-
 };
 
 initializeTelegramSDK();
@@ -62,6 +68,4 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <App />
   </StrictMode>,
-)
-
-
+);
